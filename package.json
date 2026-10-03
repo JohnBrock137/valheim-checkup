@@ -1,0 +1,13 @@
+{
+  "name": "valheim-checkup",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser-local Valheim achievement collection tracker",
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "check": "node --check src/core.js && node --check src/app.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
