@@ -14,7 +14,7 @@ function key(){return 'valheim-checkup:v1:'+save.id;}
 function persist(){if(!save)return;try{localStorage.setItem(key(),JSON.stringify({format:'valheim-checkup',version:1,save,overrides,pins}));localStorage.setItem('valheim-checkup:active',save.id);}catch{storageAvailable=false;message('Browser storage is unavailable or full. Export progress to keep your corrections.');}}
 function readStored(id){try{const value=JSON.parse(localStorage.getItem('valheim-checkup:v1:'+id));return value&&validateProgress(value)?value:null;}catch{return null;}}
 function validateProgress(d){
- if(!d||d.format!=='valheim-checkup'||d.version!==1||!d.save||typeof d.save.name!=='string'||!/^[-0-9]+$/.test(d.save.id)||d.save.version!==46||!Array.isArray(d.save.buckets)||d.save.buckets.length!==10)return false;
+ if(!d||d.format!=='valheim-checkup'||d.version!==1||!d.save||typeof d.save.name!=='string'||!/^[-0-9]+$/.test(d.save.id)||(d.save.version!==46&&d.save.version!==47)||!Array.isArray(d.save.buckets)||d.save.buckets.length!==10)return false;
  for(const b of d.save.buckets){if(!b||!Array.isArray(b.stats)||b.stats.length!==205||!b.stats.every(Number.isFinite)||!Array.isArray(b.enemy)||b.enemy.length!==5)return false;for(const dict of [b.pickup,b.craft,b.fish,b.eat,b.build,...b.enemy])if(!dict||typeof dict!=='object'||Array.isArray(dict)||!Object.values(dict).every(x=>Number.isFinite(x)&&x>=0))return false;}
  if(!d.save.discovered||!['recipes','materials','trophies','biomes'].every(k=>Array.isArray(d.save.discovered[k])&&d.save.discovered[k].every(x=>typeof x==='string')))return false;
  if(!d.overrides||!d.pins||!Object.values(d.overrides).every(x=>typeof x==='boolean')||!Object.values(d.pins).every(x=>typeof x==='boolean'))return false;return true;

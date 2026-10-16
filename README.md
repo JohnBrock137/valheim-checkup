@@ -22,7 +22,7 @@ Loading a file replaces the automatic snapshot for that character while preservi
 
 ## Supported saves and catalog
 
-The importer supports profile **46**, player data **33**, and inventory **109**. It validates SHA-512 and consumes the complete profile and embedded player data. Unsupported or damaged files are rejected without replacing loaded progress.
+The importer supports profile **46–47**, player data **33–34**, and inventory **109–110**. It validates SHA-512 and consumes the complete profile and embedded player data. Unsupported or damaged files are rejected without replacing loaded progress.
 
 The catalog preserves the community workbook's 108 creatures, 68 trophies, 82 cooked dishes, 415 crafting entries, 400 building entries, 97 edible items, and 12 fish. Collection targets overlap. Seven building entries need manual verification: four roof variants share display names, and three storage-display names have unresolved mappings. These appear as **Unverified**, separately from **Missing**.
 
@@ -51,7 +51,7 @@ Unofficial fan tool. Valheim and its game data belong to Iron Gate AB. No charac
 
 ## Death collections
 
-Are You Alright? tracks the 16 required death causes; That Can't Be an Accident tracks 10 tree species. Both read numeric PlayerStatType counters already present in profile 46 saves, so existing progress snapshots remain compatible. Tree chopping and tree tool tiers do not count as species deaths. Requirements were cross-checked with the community achievement guide and identifiers with the local game code.
+Are You Alright? tracks the 16 required death causes; That Can't Be an Accident tracks 10 tree species. Both read numeric PlayerStatType counters already present in profile 46 and 47 saves, so existing progress snapshots remain compatible. Tree chopping and tree tool tiers do not count as species deaths. Requirements were cross-checked with the community achievement guide and identifiers with the local game code.
 
 ## Blacksmith collection
 
