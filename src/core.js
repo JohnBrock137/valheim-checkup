@@ -15,7 +15,7 @@ class Reader {
  longString(){this.need(8);const n=this.v.getBigInt64(this.o,true);this.o+=8;return n.toString();}
 }
 function inventory(r){
- const ver=r.i();if(ver!==109)throw Error('Inventory version '+ver+' is not supported yet.');
+ const ver=r.i();if(![109,110].includes(ver))throw Error('Inventory version '+ver+' is not supported yet.');
  const items=r.u16();if(items>4096)throw Error('Invalid inventory size.');
  for(let j=0;j<items;j++){
   r.skip(7);const flags=r.byte();if(flags&4)r.skip(2);if(flags&8)r.skip(2);if(flags&16)r.skip(4);if(flags&32){r.skip(8);r.str();}if(flags&64)r.skip(4);
@@ -24,19 +24,23 @@ function inventory(r){
  }
 }
 function playerData(bytes){
- const r=new Reader(bytes),version=r.i();if(version!==33)throw Error('Player data version '+version+' is not supported yet.');
+ const r=new Reader(bytes),version=r.i();if(![33,34].includes(version))throw Error('Player data version '+version+' is not supported yet.');
  for(let j=0;j<4;j++)r.f();r.str();r.f();inventory(r);
  const recipes=r.list();for(let n=r.count();n--;){r.str();r.i();}const materials=r.list();r.list();r.list();const trophies=r.list();const biomes=r.list();
  for(let n=r.count();n--;){r.str();r.str();}r.str();r.str();r.skip(24);r.i();for(let n=r.count();n--;){r.str();r.f();}
- if(r.i()!==2)throw Error('Unsupported skills version.');for(let n=r.count();n--;){r.i();r.f();r.f();}for(let n=r.count();n--;){r.str();r.str();}
- r.f();r.f();r.f();r.skip(r.count(bytes.length));if(r.o!==bytes.length)throw Error('Player data length does not match.');
- return {version,recipes,materials,trophies,biomes};
+ if(r.i()!==2)throw Error('Unsupported skills version.');const skills=[];for(let n=r.count();n--;){const id=r.i(),level=r.f(),xp=r.f();if(level<0||level>100||xp<0)throw Error('Invalid skill record.');skills.push({id,level,xp});}for(let n=r.count();n--;){r.str();r.str();}
+ r.f();r.f();r.f();r.skip(r.count(bytes.length));
+ // Player 34 adds drop pseudo-random counters and item upgrade seeds.
+ // Each table is an Int32 count followed by Int32 key/value pairs.
+ if(version===34){for(let table=0;table<2;table++)for(let n=r.count();n--;){r.i();r.i();}}
+ if(r.o!==bytes.length)throw Error('Player data length does not match.');
+ return {version,recipes,materials,trophies,biomes,skills};
 }
 async function parseSave(input){
  const bytes=input instanceof Uint8Array?input:new Uint8Array(input);if(bytes.length<20||bytes.length>32*1024*1024)throw Error('Choose a valid .fch character save (up to 32 MB).');
  const file=new Reader(bytes),size=file.count(bytes.length-8);file.need(size+4);const body=bytes.subarray(4,4+size);file.skip(size);const checksumSize=file.i();if(checksumSize!==64||file.o+64!==bytes.length)throw Error('Invalid save checksum header.');
  const hash=new Uint8Array(await crypto.subtle.digest('SHA-512',body));if(!hash.every((v,i)=>v===bytes[file.o+i]))throw Error('Checksum failed. This file may be incomplete or damaged.');
- const r=new Reader(body),version=r.i(),statCount=r.count(1000),bucketCount=r.count(20);if(version!==46||statCount!==205||bucketCount!==10)throw Error('This tool currently supports profile 46 / player 33 saves. This save uses profile '+version+'.');
+ const r=new Reader(body),version=r.i(),statCount=r.count(1000),bucketCount=r.count(20);if(![46,47].includes(version)||statCount!==205||bucketCount!==10)throw Error('This tool supports profile 46–47 with 205 stats and 10 record buckets. This save uses profile '+version+'.');
  const buckets=[];for(let index=0;index<bucketCount;index++){
   const stats=Array.from({length:statCount},()=>r.f());r.dict();r.dict();r.dict();const enemy=Array.from({length:r.count(10)},()=>r.dict());if(enemy.length!==5)throw Error('Unsupported enemy records.');
   const pickup=r.dict(),craft=r.dict(),fish=r.dict(),eat=r.dict(),build=r.dict();buckets.push({stats,enemy,pickup,craft,fish,eat,build});
