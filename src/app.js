@@ -5,6 +5,7 @@ const descriptions={'The Blacksmith':'Craft every kind of weapon.',"Are You Alri
 const categories=DATA.catalog;
 const hunter=structuredClone(categories.find(c=>c.type==='killHard'));hunter.title='The Hunter';hunter.type='killAny';hunter.items.forEach(i=>i.id='The Hunter:'+i.order);categories.splice(0,0,hunter);
 const order=['The Artisan','The Blacksmith','The Carpenter','The Master Chef','The Gourmet','The Trophy Collector','The Hunter','The Master Hunter','The Fisherman',"Are You Alright?","That Can't Be an Accident"];categories.sort((a,b)=>order.indexOf(a.title)-order.indexOf(b.title));
+const recipeCategories=new Set(['The Artisan','The Blacksmith','The Carpenter','The Master Chef','The Gourmet']);
 let current='The Master Chef',save=null,overrides={},pins={},mode='achievement',lastRows=[],storageAvailable=true,toastTimer;
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>n.toLocaleString();
@@ -72,16 +73,23 @@ function render(){
 function actionLabel(c){return {craft:c.title==='The Master Chef'?'Cooked':'Crafted',eat:'Eaten',build:'Built',pickup:'Collected',fish:'Caught',killAny:'Kill credits',killHard:'Hard kill credits',stat:'Deaths'}[c.type];}
 function renderRows(){
  const c=categories.find(c=>c.title===current);if(!c)return;
+ const recipesEnabled=recipeCategories.has(c.title);
+ $('recipeToggleControl').classList.toggle('hidden',!recipesEnabled);
+ $('totalRecipeList').classList.toggle('hidden',!recipesEnabled);
+ $('itemsTable').classList.toggle('show-recipes',recipesEnabled&&$('toggleRecipes').checked);
  const q=$('search').value.toLowerCase().trim(),f=$('statusFilter').value,d=$('discoveryFilter').disabled?'all':$('discoveryFilter').value,b=$('biomeFilter').value;
  let rows=c.items.map(item=>({item,...core.evaluate(c,item,save,mode,overrides[item.id])})).filter(r=>{
-  if(q&&!`${r.item.name} ${r.item.biome} ${r.item.bait} ${r.item.tokens.join(' ')} ${notes[r.item.id]||''}`.toLowerCase().includes(q))return false;
+  if(q&&!`${r.item.name} ${r.item.biome} ${r.item.bait} ${r.item.tokens.join(' ')} ${Object.keys(r.item.recipe||{}).join(' ')} ${notes[r.item.id]||''}`.toLowerCase().includes(q))return false;
   if(save&&f==='remaining'&&r.status==='done')return false;if(save&&f!=='all'&&f!=='remaining'&&r.status!==f)return false;
   return (d==='all'||r.discovery===d)&&(b==='all'||(b==='unknown'?!r.item.biome:r.item.biome===b))&&(!$('pinnedOnly').checked||pins[r.item.id]);
  });
  const biomeOrder=['Meadows','Black Forest','Swamp','Mountain','Plains','Mistlands','Ashlands','Deep North','Ocean'];
  rows.sort((a,b)=>$('sort').value==='source'?a.item.order-b.item.order:$('sort').value==='biome'?(biomeOrder.indexOf(a.item.biome)-biomeOrder.indexOf(b.item.biome)||a.item.name.localeCompare(b.item.name)):a.item.name.localeCompare(b.item.name));lastRows=rows;
  $('listCount').textContent=`${rows.length} of ${c.total} items shown`;
- $('items').innerHTML=rows.length?rows.map(r=>`<tr class="row-${r.status}" data-item="${escape(r.item.id)}" draggable="${!!save}" title="Open Details to compare records or add a note. Double-click or right-click also opens Details."><td><button class="pin ${pins[r.item.id]?'on':''}" data-pin="${escape(r.item.id)}" aria-label="${pins[r.item.id]?'Unstar':'Star'} ${escape(r.item.name)}" aria-pressed="${!!pins[r.item.id]}">${pins[r.item.id]?'★':'☆'}</button></td><td><div class="item-name">${escape(r.item.name)}</div>${r.count>0?`<div class="sub">${actionLabel(c)}: ${fmt(r.count)}</div>`:''}${r.manual?'<div class="sub">Manual correction</div>':''}${notes[r.item.id]?'<span class="note-indicator" title="Has a private note">✎ Note</span>':''}</td><td><span class="status ${r.status}" ${r.status==='unknown'?`tabindex="0" ${tooltip(UNVERIFIED)}`:''}>${{done:'Completed',missing:'Missing',unknown:'Unverified ⓘ',unloaded:'Load a save'}[r.status]}</span></td><td class="discovery-cell">${{known:'Discovered',undiscovered:'Undiscovered',unknown:'—'}[r.discovery]}</td><td class="biome-cell" ${tooltip(r.item.biomeSource||(!r.item.biome?'Not verified in the catalog. Use the wiki link in Details.':'Community catalog biome; recipes may use materials from multiple biomes.'))}>${escape(r.item.biome||'Unknown')}</td><td class="item-actions"><button data-details="${escape(r.item.id)}" aria-label="Details for ${escape(r.item.name)}">Details</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty">No items match. Try All items or clear your filters.</td></tr>';
+ $('items').innerHTML=rows.length?rows.map(r=>`<tr class="row-${r.status}" data-item="${escape(r.item.id)}" draggable="${!!save}" title="Open Details to compare records or add a note. Double-click or right-click also opens Details."><td><button class="pin ${pins[r.item.id]?'on':''}" data-pin="${escape(r.item.id)}" aria-label="${pins[r.item.id]?'Unstar':'Star'} ${escape(r.item.name)}" aria-pressed="${!!pins[r.item.id]}">${pins[r.item.id]?'★':'☆'}</button></td><td><div class="item-name">${escape(r.item.name)}</div>${r.count>0?`<div class="sub">${actionLabel(c)}: ${fmt(r.count)}</div>`:''}${r.manual?'<div class="sub">Manual correction</div>':''}${notes[r.item.id]?'<span class="note-indicator" title="Has a private note">✎ Note</span>':''}</td><td class="recipe-cell">${r.item.recipe?Object.entries(r.item.recipe).map(([name,amount])=>`<div>${escape(amount)} ${escape(name)}</div>`).join(''):''}</td><td><span class="status ${r.status}" ${r.status==='unknown'?`tabindex="0" ${tooltip(UNVERIFIED)}`:''}>${{done:'Completed',missing:'Missing',unknown:'Unverified ⓘ',unloaded:'Load a save'}[r.status]}</span></td><td class="discovery-cell">${{known:'Discovered',undiscovered:'Undiscovered',unknown:'—'}[r.discovery]}</td><td class="biome-cell" ${tooltip(r.item.biomeSource||(!r.item.biome?'Not verified in the catalog. Use the wiki link in Details.':'Community catalog biome; recipes may use materials from multiple biomes.'))}>${escape(r.item.biome||'Unknown')}</td><td class="item-actions"><button data-details="${escape(r.item.id)}" aria-label="Details for ${escape(r.item.name)}">Details</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty">No items match. Try All items or clear your filters.</td></tr>';
+ const totals=new Map();
+ for(const {item} of rows)for(const [name,amount] of Object.entries(item.recipe||{}))totals.set(name,(totals.get(name)||0)+amount);
+ $('recipeTotals').innerHTML=totals.size?[...totals].sort(([a],[b])=>a.localeCompare(b)).map(([name,amount])=>`<div>${escape(amount)} ${escape(name)}</div>`).join(''):'<div class="sub">No recipe materials in the items shown.</div>';
 }
 function showDetails(id){
  const c=categories.find(c=>c.title===current),i=c?.items.find(i=>i.id===id);if(!i)return;detailItem={category:c.title,id};$('detailTitle').textContent=i.name;
@@ -124,7 +132,7 @@ const safeName=()=>save?save.name.replace(/[^a-z0-9_-]/gi,'_'):'checklist';
 $('loadTop').onclick=$('loadMain').onclick=()=>$('saveFile').click();$('saveFile').onchange=e=>loadFile(e.target.files[0]);
 $('categories').onclick=e=>{const b=e.target.closest('[data-category]');if(b)setCategory(b.dataset.category);};$('mobileCategory').onchange=e=>setCategory(e.target.value);
 
-$('recordMode').onchange=e=>{stopAnimation();mode=e.target.value;render();if(mode==='raw')notify('Lifetime actions may include actions that did not earn achievement credit. Hard-difficulty requirements are not applied in this view.');};for(const id of ['search','statusFilter','discoveryFilter','biomeFilter','sort','pinnedOnly'])$(id).addEventListener(id==='search'?'input':'change',renderRows);
+$('recordMode').onchange=e=>{stopAnimation();mode=e.target.value;render();if(mode==='raw')notify('Lifetime actions may include actions that did not earn achievement credit. Hard-difficulty requirements are not applied in this view.');};$('toggleRecipes').onchange=e=>$('itemsTable').classList.toggle('show-recipes',recipeCategories.has(current)&&e.target.checked);for(const id of ['search','statusFilter','discoveryFilter','biomeFilter','sort','pinnedOnly'])$(id).addEventListener(id==='search'?'input':'change',renderRows);
 $('items').onclick=e=>{const star=e.target.closest('[data-pin]'),detail=e.target.closest('[data-details]');if(star){pins[star.dataset.pin]=!pins[star.dataset.pin];persist();renderRows();}else if(detail)showDetails(detail.dataset.details);};
 $('items').ondblclick=$('items').oncontextmenu=e=>{if(e.target.closest('button,a,input,select,textarea'))return;const row=e.target.closest('[data-item]');if(row){e.preventDefault();showDetails(row.dataset.item);}};
 $('closeDetails').onclick=()=>$('itemDialog').close();
@@ -136,7 +144,18 @@ document.querySelector('header').addEventListener('drop',e=>{e.currentTarget.cla
 $('favorites').onclick=e=>{const remove=e.target.closest('[data-remove-favorite]'),open=e.target.closest('[data-favorite-open]');if(remove){favorites.splice(+remove.dataset.removeFavorite,1);persist();header();}else if(open){const f=favorites[+open.dataset.favoriteOpen];setCategory(f.category);$('search').value=categories.find(c=>c.title===f.category).items.find(i=>i.id===f.id).name;$('statusFilter').value='all';renderRows();}};
 $('exportProgress').onclick=()=>{if(save)download(safeName()+'-valheim-progress.json',JSON.stringify({format:'valheim-checkup',version:1,save,overrides,pins,notes,favorites},null,2),'application/json');};
 $('importProgress').onclick=()=>$('progressFile').click();$('progressFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>10*1024*1024)throw Error('Progress file is too large.');const d=JSON.parse(await file.text());if(!validateProgress(d))throw Error('Choose a progress export created by Valheim Checkup.');save=d.save;overrides=d.overrides;pins=d.pins;notes=d.notes||{};favorites=d.favorites||[];persist();render();message('Restored an exported snapshot. Load a current .fch to refresh automatic progress.');notify('Progress restored.');}catch(err){message(err.message,true);}finally{e.target.value='';}};
-$('exportList').onclick=()=>{const quote=s=>'"'+String(s).replaceAll('"','""')+'"';const lines=[['Collection','Item','Status','Discovery','Recorded count','Biome','Bait','Manual correction','Starred','Private note'],...lastRows.map(r=>[current,r.item.name,r.status,r.discovery,r.count,r.item.biome,r.item.bait,r.manual,!!pins[r.item.id],notes[r.item.id]||''])];download(safeName()+'-'+current.replaceAll(' ','-')+'.csv','\uFEFF'+lines.map(row=>row.map(quote).join(',')).join('\r\n'),'text/csv;charset=utf-8');};
+$('exportList').onclick=()=>{
+ const quote=s=>'"'+String(s).replaceAll('"','""')+'"';
+ const includeRecipe=$('itemsTable').classList.contains('show-recipes');
+ const headers=['Collection','Item','Status','Discovery','Recorded count','Biome','Bait','Manual correction','Starred','Private note'];
+ if(includeRecipe)headers.splice(2,0,'Recipe');
+ const lines=[headers,...lastRows.map(r=>{
+  const row=[current,r.item.name,r.status,r.discovery,r.count,r.item.biome,r.item.bait,r.manual,!!pins[r.item.id],notes[r.item.id]||''];
+  if(includeRecipe)row.splice(2,0,Object.entries(r.item.recipe||{}).map(([name,amount])=>`${amount} ${name}`).join('\n'));
+  return row;
+ })];
+ download(safeName()+'-'+current.replaceAll(' ','-')+'.csv','\uFEFF'+lines.map(row=>row.map(quote).join(',')).join('\r\n'),'text/csv;charset=utf-8');
+};
 $('forget').onclick=()=>{if(!save||!confirm('Forget '+save.name+'’s extracted progress, corrections, and pins in this browser? Your game save will not change.'))return;try{localStorage.removeItem(key());localStorage.removeItem('valheim-checkup:active');}catch{}stopAnimation();save=null;overrides={};pins={};notes={};favorites=[];render();message('Saved progress cleared from this browser.');};
 for(const target of [$('dropzone'),$('loadTop')]){for(const name of ['dragenter','dragover'])target.addEventListener(name,e=>{if([...e.dataTransfer.types].includes('Files')){e.preventDefault();target.classList.add('drag');}});target.addEventListener('dragleave',()=>target.classList.remove('drag'));target.addEventListener('drop',e=>{if(!e.dataTransfer.files.length)return;e.preventDefault();e.stopPropagation();target.classList.remove('drag');loadFile(e.dataTransfer.files[0]);});}
 try{const active=localStorage.getItem('valheim-checkup:active'),d=active&&readStored(active);if(d){save=d.save;overrides=d.overrides;pins=d.pins;notes=d.notes||{};favorites=d.favorites||[];}}catch{storageAvailable=false;}
